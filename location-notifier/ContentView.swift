@@ -19,6 +19,31 @@ struct ContentView: View {
     }
 }
 
+struct ProfileHeader: View {
+    // 1. The State (The Source of Truth)
+    @State private var isFollowing = false
+    
+    var body: some View {
+        // 2. The Layout
+        VStack(spacing: 20) {
+            Image("avatar")
+                .resizable()
+                .frame(width: 80, height: 80)
+                .clipShape(Circle()) // 3. Styling (Modifiers)
+            
+            Text("Alex Nomad")
+                .font(.headline)
+            
+            Button(isFollowing ? "Unfollow" : "Follow") {
+                // 4. The Action (Changes State, which triggers a Re-render)
+                isFollowing.toggle()
+            }
+            .buttonStyle(.borderedProminent)
+        }
+        .padding()
+    }
+}
+
 #Preview {
-    ContentView()
+    ProfileHeader()
 }
