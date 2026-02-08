@@ -65,9 +65,25 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
         self.lastLocation = locations.last
     }
     
-    func locationManager(_ manager: CLLocationManager, didEnterRegion region: CLRegion) {
+    func notifySubscribers(region: CLRegion) {
         for subscriber in enterRegionSubscribers {
             subscriber(region)
+        }
+    }
+    
+    func locationManager(_ manager: CLLocationManager, didEnterRegion region: CLRegion) {
+        self.notifySubscribers(region: region)
+    }
+    
+    func locationManager(_ manager: CLLocationManager, didDetermineState state: CLRegionState, for region: CLRegion) {
+        switch state {
+        case .inside:
+            print("User is currently inside the area.")
+            self.notifySubscribers(region: region)
+        case .outside:
+            print("User is outside the area.")
+        case .unknown:
+            print("Location signal too weak to determine state.")
         }
     }
     
@@ -80,8 +96,10 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
         )
         
         region.notifyOnEntry = true
+        region.notifyOnExit = true
         
         locationManager.startMonitoring(for: region)
+        locationManager.requestState(for: region)
     }
     
     func removeGeofence(id: String) {

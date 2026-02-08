@@ -24,7 +24,7 @@ struct AlarmsView: View {
     var body: some View {
         VStack {
             ForEach($alarms, id: \.id) { $alarm in
-                AlarmView(alarm: $alarm)
+                AlarmCard(alarm: $alarm)
             }
             Button {
                 alarms.append(Alarm())
@@ -42,7 +42,7 @@ struct AlarmsView: View {
     }
 }
 
-struct AlarmView: View {
+struct AlarmCard: View {
     @Binding var alarm: Alarm
     @State private var isShowingMap = false
     
