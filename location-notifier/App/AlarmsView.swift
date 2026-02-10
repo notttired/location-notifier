@@ -50,7 +50,7 @@ struct AlarmCard: View {
         HStack {
             TextField("Name", text: $alarm.name)
                 .font(.headline)
-            Text("Lat: \(alarm.area.location?.latitude ?? 0.0, specifier: "%.4f") Long: \(alarm.area.location?.longitude ?? 0.0, specifier: "%.4f")")
+            Text("Lat: \(alarm.area.center?.latitude ?? 0.0, specifier: "%.4f") Long: \(alarm.area.center?.longitude ?? 0.0, specifier: "%.4f")")
             Button {
                 isShowingMap = true
             } label: {
