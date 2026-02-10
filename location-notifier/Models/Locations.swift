@@ -9,15 +9,15 @@ import SwiftUI
 import MapKit
 
 struct LocationArea: Equatable, Hashable {
-    var location: CLLocationCoordinate2D?
-    var radius: CLLocationDistance = 1000
+    var center: CLLocationCoordinate2D?
+    var radius: CLLocationDistance = 100
     
     var isSet: Bool {
-        location != nil
+        center != nil
     }
     
     static func == (lhs: LocationArea, rhs: LocationArea) -> Bool {
-        switch (lhs.location, rhs.location) {
+        switch (lhs.center, rhs.center) {
         case (nil, nil):
             return lhs.radius == rhs.radius
         case let (l?, r?):
@@ -28,29 +28,32 @@ struct LocationArea: Equatable, Hashable {
     }
 
     func hash(into hasher: inout Hasher) {
-        if let loc = location {
+        if let loc = center {
             hasher.combine(loc.latitude)
             hasher.combine(loc.longitude)
         } else {
-            // Distinguish nil location from (0,0)
             hasher.combine("nil_location")
         }
         hasher.combine(radius)
     }
+    
+    func toMKCoordinateRegion() -> MKCoordinateRegion? {
+        guard let center = center else { return nil }
+        return MKCoordinateRegion(center: center, radius: radius)
+    }
 }
 
-struct Alarm: Identifiable, Equatable, Hashable {
-    var id: UUID = UUID()
-    var name: String = "New Alarm"
-    var area: LocationArea = LocationArea()
-    
-    static func == (lhs: Alarm, rhs: Alarm) -> Bool {
-        lhs.id == rhs.id && lhs.name == rhs.name && lhs.area == rhs.area
+extension MKCoordinateRegion {
+    init(center: CLLocationCoordinate2D, radius: Double) {
+        self.init(
+            center: center,
+            latitudinalMeters: radius * 2,
+            longitudinalMeters: radius * 2
+        )
     }
+}
 
-    func hash(into hasher: inout Hasher) {
-        hasher.combine(id)
-        hasher.combine(name)
-        hasher.combine(area)
-    }
+struct SearchableMapItem: Identifiable {
+    let id: UUID = UUID()
+    let item: MKMapItem
 }

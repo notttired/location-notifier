@@ -8,23 +8,71 @@
 import SwiftUI
 import MapKit
 
+@Observable
+class SearchManager {
+    var results: [SearchableMapItem] = []
+    
+    func search(query: String, region: MKCoordinateRegion) {
+        let searchRequest = MKLocalSearch.Request()
+        searchRequest.naturalLanguageQuery = query
+        searchRequest.region = region
+        
+        let search = MKLocalSearch(request: searchRequest)
+        search.start { (response: MKLocalSearch.Response?, error: Error?) in
+            guard let response = response else {
+                let message = (error as NSError?)?.localizedDescription ?? "Unknown"
+                print("Search failed: \(message)")
+                return
+            }
+            self.results = response.mapItems.map{ result in
+                SearchableMapItem(item: result)
+            }
+        }
+    }
+}
+
 struct GeofencePickerView: View {
     @Binding var selectedArea: LocationArea
     @State private var position: MapCameraPosition = .userLocation(fallback: .automatic)
     @Environment(\.dismiss) var dismiss
     
+    @State private var selectedItem: MKMapItem?
+    @State private var searchText = ""
+    @State private var searchManager = SearchManager()
+    
     var body: some View {
         NavigationStack {
-            MapReader { proxy in
-                Map(position: $position) {
-                    if let location = selectedArea.location {
-                        Marker("Target", coordinate: location)
+            ZStack {
+                MapReader { proxy in
+                    Map(position: $position, selection: $selectedItem) {
+                        UserAnnotation()
+                        if let location = selectedArea.center {
+                            Marker("Target", coordinate: location)
+                            MapCircle(center: location, radius: selectedArea.radius)
+                                .foregroundStyle(.blue.opacity(0.3))
+                                .stroke(.blue, lineWidth: 2)
+                        }
+                        ForEach(searchManager.results) { result in
+                            Marker(item: result.item)
+                        }
                     }
-                }
-                .onTapGesture { screenPoint in
-                    let coordinate = proxy.convert(screenPoint, from: .local)
-                    if let coord = coordinate {
-                        selectedArea.location = coord
+                    .onTapGesture { screenPoint in
+                        let coordinate = proxy.convert(screenPoint, from: .local)
+                        if let coord = coordinate {
+                            selectedArea.center = coord
+                        }
+                    }
+                    .safeAreaInset(edge: .top) {
+                                TextField("Search for a place...", text: $searchText)
+                                    .textFieldStyle(.roundedBorder)
+                                    .padding()
+                                    .background(.ultraThinMaterial)
+                                    .onSubmit {
+                                        if let center = selectedArea.center {
+                                            let region = MKCoordinateRegion(center: center, radius: 5000)
+                                            searchManager.search(query: searchText, region: region)
+                                        }
+                                    }
                     }
                 }
             }
@@ -32,6 +80,22 @@ struct GeofencePickerView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") {
                         dismiss()
+                    }
+                }
+            }
+            .safeAreaInset(edge: .bottom) {
+                VStack {
+                    Text("Radius: \(selectedArea.radius, format: .number.precision(.fractionLength(0))) m")
+                    Slider(
+                        value: $selectedArea.radius,
+                        in: 100...1000,
+                        step: 10
+                    ) {
+                        Text("Radius")
+                    } minimumValueLabel: {
+                        Text("100")
+                    } maximumValueLabel: {
+                        Text("1000")
                     }
                 }
             }
@@ -49,7 +113,7 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
     override init() {
         super.init()
         self.locationManager.delegate = self
-        self.locationManager.desiredAccuracy = kCLLocationAccuracyKilometer
+        self.locationManager.desiredAccuracy = kCLLocationAccuracyBest
         self.locationManager.requestAlwaysAuthorization()
     }
     
@@ -88,7 +152,7 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
     }
     
     func addGeofence(id: String, area: LocationArea) {
-        guard let center = area.location else { return }
+        guard let center = area.center else { return }
         let region = CLCircularRegion(
             center: center,
             radius: area.radius,
