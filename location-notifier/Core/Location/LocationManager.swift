@@ -36,47 +36,88 @@ struct SearchView: View {
     @State private var partialSearchText = ""
     @State private var searchCompletionManager = SearchCompletionManager()
     @State private var showResults = true
-    
-    // Compute results dynamically to ensure UI stays in sync
+
     var filteredItems: [String] {
         let all = searchCompletionManager.results.map(\.item.title)
-        return partialSearchText.isEmpty ? all : all.filter { $0.localizedCaseInsensitiveContains(partialSearchText) }
+        return partialSearchText.isEmpty
+            ? all
+            : all.filter { $0.localizedCaseInsensitiveContains(partialSearchText) }
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
+            HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
-                    .foregroundColor(.gray)
+                    .foregroundStyle(.secondary)
+                    .font(.body)
+
                 TextField("Search for places", text: $partialSearchText)
                     .textFieldStyle(.plain)
-                if !partialSearchText.isEmpty {
-                    Button(action: { partialSearchText = "" }) {
-                        Image(systemName: "xmark.circle.fill").foregroundColor(.gray)
+                    .submitLabel(.search)
+                    .onSubmit {
+                        searchCompletionManager.completeSearch(query: partialSearchText)
+                        showResults = true
                     }
-                }
-                Button(action: {
-                    searchCompletionManager.completeSearch(query: partialSearchText)
-                    self.showResults = true
-                }) {
-                    Image(systemName: "magnifyingglass").foregroundColor(.gray)
+
+                if !partialSearchText.isEmpty {
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            partialSearchText = ""
+                        }
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .transition(.opacity.combined(with: .scale))
                 }
             }
             .padding(10)
-            .background(Color(.systemGray6))
-            .cornerRadius(10)
-            .padding()
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .padding(.horizontal)
+            .padding(.vertical, 8)
 
+            // MARK: - Results
+            if showResults && !filteredItems.isEmpty {
+                Divider()
+                    .padding(.horizontal, 24)
 
-            if self.showResults {
-                List(filteredItems, id: \.self) { item in
-                    Text(item).onTapGesture {
-                        self.fullSearchText = item
-                        self.showResults = false
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 0) {
+                        ForEach(Array(filteredItems.enumerated()), id: \.element) { index, item in
+                            Button {
+                                fullSearchText = item
+                                showResults = false
+                            } label: {
+                                HStack(spacing: 12) {
+                                    Image(systemName: "mappin.and.ellipse")
+                                        .foregroundStyle(.red)
+                                        .font(.callout)
+                                        .frame(width: 24)
+
+                                    Text(item)
+                                        .foregroundStyle(.primary)
+                                        .font(.body)
+                                        .lineLimit(1)
+
+                                    Spacer()
+                                }
+                                .padding(.vertical, 11)
+                                .padding(.horizontal, 16)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+
+                            if index < filteredItems.count - 1 {
+                                Divider()
+                                    .padding(.leading, 52)
+                            }
+                        }
                     }
                 }
-                .listStyle(.plain)
                 .frame(maxHeight: 250)
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .padding(.horizontal)
             }
         }
     }
