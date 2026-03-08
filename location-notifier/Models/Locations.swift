@@ -57,3 +57,8 @@ struct SearchableMapItem: Identifiable {
     let id: UUID = UUID()
     let item: MKMapItem
 }
+
+struct SearchableCompletionItem: Identifiable {
+    let id: UUID = UUID()
+    let item: MKLocalSearchCompletion
+}

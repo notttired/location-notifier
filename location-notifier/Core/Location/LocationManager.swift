@@ -31,6 +31,57 @@ class SearchManager {
     }
 }
 
+struct SearchView: View {
+    @Binding var fullSearchText: String
+    @State private var partialSearchText = ""
+    @State private var searchCompletionManager = SearchCompletionManager()
+    @State private var showResults = true
+    
+    // Compute results dynamically to ensure UI stays in sync
+    var filteredItems: [String] {
+        let all = searchCompletionManager.results.map(\.item.title)
+        return partialSearchText.isEmpty ? all : all.filter { $0.localizedCaseInsensitiveContains(partialSearchText) }
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Image(systemName: "magnifyingglass")
+                    .foregroundColor(.gray)
+                TextField("Search for places", text: $partialSearchText)
+                    .textFieldStyle(.plain)
+                if !partialSearchText.isEmpty {
+                    Button(action: { partialSearchText = "" }) {
+                        Image(systemName: "xmark.circle.fill").foregroundColor(.gray)
+                    }
+                }
+                Button(action: {
+                    searchCompletionManager.completeSearch(query: partialSearchText)
+                    self.showResults = true
+                }) {
+                    Image(systemName: "magnifyingglass").foregroundColor(.gray)
+                }
+            }
+            .padding(10)
+            .background(Color(.systemGray6))
+            .cornerRadius(10)
+            .padding()
+
+
+            if self.showResults {
+                List(filteredItems, id: \.self) { item in
+                    Text(item).onTapGesture {
+                        self.fullSearchText = item
+                        self.showResults = false
+                    }
+                }
+                .listStyle(.plain)
+                .frame(maxHeight: 250)
+            }
+        }
+    }
+}
+
 struct GeofencePickerView: View {
     @Binding var selectedArea: LocationArea
     @State private var position: MapCameraPosition = .userLocation(fallback: .automatic)
@@ -39,6 +90,7 @@ struct GeofencePickerView: View {
     @State private var selectedItem: MKMapItem?
     @State private var searchText = ""
     @State private var searchManager = SearchManager()
+    @Environment(LocationManager.self) private var locationManager
     
     var body: some View {
         NavigationStack {
@@ -63,17 +115,24 @@ struct GeofencePickerView: View {
                         }
                     }
                     .safeAreaInset(edge: .top) {
-                                TextField("Search for a place...", text: $searchText)
-                                    .textFieldStyle(.roundedBorder)
-                                    .padding()
-                                    .background(.ultraThinMaterial)
-                                    .onSubmit {
-                                        if let center = selectedArea.center {
-                                            let region = MKCoordinateRegion(center: center, radius: 5000)
-                                            searchManager.search(query: searchText, region: region)
-                                        }
-                                    }
+                        SearchView(fullSearchText: $searchText)
                     }
+                }
+                .onChange(of: searchText) { oldText, newText in
+                    if newText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return }
+
+                    let center: CLLocationCoordinate2D
+                    if let areaCenter = self.selectedArea.center {
+                        center = areaCenter
+                    } else if let areaCenter = locationManager.lastLocation {
+                        center = areaCenter.coordinate
+                    } else {
+                        return
+                    }
+
+                    let span = MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05)
+                    let region = MKCoordinateRegion(center: center, span: span)
+                    searchManager.search(query: newText, region: region)
                 }
             }
             .toolbar {
@@ -98,8 +157,36 @@ struct GeofencePickerView: View {
                         Text("1000")
                     }
                 }
+                .padding(20)
             }
         }
+    }
+}
+
+@Observable
+class SearchCompletionManager: NSObject, MKLocalSearchCompleterDelegate {
+    let searchCompleter = MKLocalSearchCompleter()
+    var results: [SearchableCompletionItem] = []
+    
+    override init() {
+        super.init()
+        self.searchCompleter.delegate = self
+    }
+    
+    func completerDidUpdateResults(_ completer: MKLocalSearchCompleter) {
+        print("Got search results")
+        self.results = completer.results.map { item in
+            SearchableCompletionItem(item: item)
+        }
+    }
+    
+    func completer(_ completer: MKLocalSearchCompleter, didFailWithError error: Error) {
+        print("Error: \(error.localizedDescription)")
+    }
+    
+    func completeSearch(query: String) {
+        print("Starting search")
+        self.searchCompleter.queryFragment = query
     }
 }
 
@@ -198,3 +285,6 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
     }
 }
 
+#Preview {
+    SearchView(fullSearchText: .constant(""))
+}
