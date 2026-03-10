@@ -11,14 +11,18 @@ struct Alarm: Identifiable, Equatable, Hashable {
     var id: UUID = UUID()
     var name: String = "New Alarm"
     var area: LocationArea = LocationArea()
-    
-    static func == (lhs: Alarm, rhs: Alarm) -> Bool {
-        lhs.id == rhs.id && lhs.name == rhs.name && lhs.area == rhs.area
-    }
+    var settings: AlarmSettings = AlarmSettings()
+}
 
-    func hash(into hasher: inout Hasher) {
-        hasher.combine(id)
-        hasher.combine(name)
-        hasher.combine(area)
-    }
+enum RepeatMode: String, CaseIterable, Identifiable {
+    case never = "Never"
+//    case daily
+//    case weekly
+    case always = "Always"
+    var id: String { self.rawValue }
+}
+
+struct AlarmSettings: Equatable, Hashable {
+    var active = true
+    var repeatMode: RepeatMode = .always
 }
